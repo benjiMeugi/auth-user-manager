@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -46,7 +46,7 @@ class User extends Authenticatable implements IModel
         'email_verified_at' => 'datetime',
     ];
 
-    public $relation_methods = ['permissions', 'roles', 'permission_users'];
+    public $relation_methods = ['permissions', 'roles', 'permission_users', 'apps'];
 
     public function getMigrateKey()
     {
@@ -75,16 +75,22 @@ class User extends Authenticatable implements IModel
     // relations
     public function roles()
     {
-        return $this->belongsToMany(Role::class, 'role_users', 'role_id');
+        return $this->belongsToMany(Role::class, 'role_users', 'user_id', 'role_id');
     }
 
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'permission_users', 'user_id');
+        return $this->belongsToMany(Permission::class, 'permission_users', 'user_id', 'permission_id');
     }
+    
     public function permission_users()
     {
         return $this->hasMany(PermissionUser::class, 'user_id');
+    }
+
+    public function apps()
+    {
+        return $this->belongsToMany(App::class, 'app_users', 'user_id', 'app_id');
     }
 
     /**

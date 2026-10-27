@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
 use App\Models\User;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
 
 class Permission extends Model implements IModel
@@ -30,8 +30,6 @@ class Permission extends Model implements IModel
     {
         return $this->getForeignKey();
     }
-
-
     
     public function rules()
     {

@@ -16,7 +16,7 @@ class Permissions extends Migration
         Schema::create('permissions', function (Blueprint $table) {
             $table->id();
             $table->string('label');
-            $table->string('app');
+            $table->string('description')->nullable();
             $table->string('display_label')->nullable();
             $table->timestamps();
         });

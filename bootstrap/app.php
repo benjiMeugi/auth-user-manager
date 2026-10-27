@@ -1,55 +1,103 @@
 <?php
 
-/*
-|--------------------------------------------------------------------------
-| Create The Application
-|--------------------------------------------------------------------------
-|
-| The first thing we will do is create a new Laravel application instance
-| which serves as the "glue" for all the components of Laravel, and is
-| the IoC container for the system binding all of the various parts.
-|
-*/
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
-$app = new Illuminate\Foundation\Application(
-    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
-);
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        //
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+            
+        // Intercepte et formate toutes les erreurs de l'API au format JSON uniformisé
+        $exceptions->render(function (Throwable $e, Request $request) {
+            
+            // S'applique uniquement aux routes de l'API ou aux requêtes exigeant du JSON
+            if ($request->is('api/*') || $request->expectsJson()) {
+                
+                // 1. Route [login] non définie (sécurité anti-crash si un middleware cherche la route web de connexion)
+                if ($e instanceof RouteNotFoundException && str_contains($e->getMessage(), 'login')) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 401,
+                        'message' => 'Non authentifié.',
+                        'body' => [
+                            'error_message' => 'Route [login] not defined or token missing.',
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 401);
+                }
 
-/*
-|--------------------------------------------------------------------------
-| Bind Important Interfaces
-|--------------------------------------------------------------------------
-|
-| Next, we need to bind some important interfaces into the container so
-| we will be able to resolve them when needed. The kernels serve the
-| incoming requests to this application from both the web and CLI.
-|
-*/
+                // 2. Non authentifié (Token Sanctum manquant, expiré ou invalide)
+                if ($e instanceof AuthenticationException) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 401,
+                        'message' => 'Non authentifié. Veuillez fournir un token valide.',
+                        'body' => [
+                            'error_message' => $e->getMessage(),
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 401);
+                }
 
-$app->singleton(
-    Illuminate\Contracts\Http\Kernel::class,
-    App\Http\Kernel::class
-);
+                // 3. Non autorisé (Permissions insuffisantes / Gate ou Can refusé)
+                if ($e instanceof AuthorizationException || $e instanceof AccessDeniedHttpException) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 403,
+                        'message' => "Action non autorisée. Vous n'avez pas la permission requise.",
+                        'body' => [
+                            'error_message' => $e->getMessage(),
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 403);
+                }
 
-$app->singleton(
-    Illuminate\Contracts\Console\Kernel::class,
-    App\Console\Kernel::class
-);
+                // 4. Ressource introuvable (404)
+                if ($e instanceof NotFoundHttpException) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 404,
+                        'message' => 'Ressource introuvable.',
+                        'body' => [
+                            'error_message' => $e->getMessage(),
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 404);
+                }
 
-$app->singleton(
-    Illuminate\Contracts\Debug\ExceptionHandler::class,
-    App\Exceptions\Handler::class
-);
-
-/*
-|--------------------------------------------------------------------------
-| Return The Application
-|--------------------------------------------------------------------------
-|
-| This script returns the application instance. The instance is given to
-| the calling script so we can separate the building of the instances
-| from the actual running of the application and sending responses.
-|
-*/
-
-return $app;
+                // 5. Erreur interne du serveur (500) par défaut pour les autres exceptions
+                return response()->json([
+                    'success' => false,
+                    'code' => 500,
+                    'message' => 'Erreur interne du serveur.',
+                    'body' => [
+                        'error_message' => config('app.debug') ? $e->getMessage() : 'Une erreur est survenue.',
+                        'errors' => null,
+                        'response_data' => null,
+                    ]
+                ], 500);
+            }
+        
+        });
+    })->create();

@@ -1,8 +1,8 @@
 <?php
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
 use App\Rules\Uniques;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 

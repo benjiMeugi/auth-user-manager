@@ -35,24 +35,14 @@ class UserController extends Controller
      */
     public function index(Request $request, $id = null)
     {
-        if ($id !== null) {
-            return $this->show($request, $id);
-        }
-
         $query = $this->repository->parse_filters($request);
 
         // return response
         if ($request->has('page') && $request->has('per_page')) {
             return $this->respondOk(
                 $query->paginate($request->get('per_page')),
-
-                // UserResource::call(
-                //     $query->paginate($request->get('per_page')),
-                //     $request->all()
-                // )
             );
         }
-        // return $this->respondOk( UserResource::call($query->get(), $request->all()));
         return $this->respondOk($query->get());
     }
 
@@ -69,24 +59,17 @@ class UserController extends Controller
 
     /**
      * Store resource
-     * 
+     *
      * @param Request $request
      */
     public function store(Request $request)
     {
-        $validator = $this->repository->check($request , $this->repository->rules());
+        $validator = $this->repository->check($request, $this->repository->rules());
         if (true !== $validator) {
             return $validator;
-        };
-        $request['password'] = Hash::make($request['password']);
-
-        $data = $this->repository->store($request);
-
-        if ($data instanceof Exception) {
-            return $this->respondError($data);
-        } else {
-            return $this->respondOk($data);
         }
+
+        return $this->respondOk($this->repository->store($request));
     }
 
     /**
@@ -97,26 +80,22 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validator = $this->repository->check($request , $this->repository->update_rules(), $id);
+        $validator = $this->repository->check($request, $this->repository->update_rules(), $id);
         if (true !== $validator) {
             return $validator;
-        };
-
-        $data =  $this->repository->update($request, $id);
-        if ($data instanceof Exception) {
-            return $this->respondError($data);
-        } else {
-            return $this->respondOk($data);
         }
+
+        return $this->respondOk($this->repository->update($request, $id));
     }
 
     /**
      * Delete resource
-     * 
+     *
+     * @param Request $request
      * @param int $id
      */
-    public function delete($id, Request $request)
+    public function delete(Request $request, int $id)
     {
-        return $this->repository->delete($id, $request);
+        return $this->respondOk($this->repository->delete($request, $id));
     }
 }

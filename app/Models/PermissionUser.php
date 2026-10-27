@@ -1,7 +1,7 @@
 <?php
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
 
 class PermissionUser extends Model implements IModel

@@ -1,8 +1,8 @@
 <?php
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
 use App\Models\User;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
 
 class RoleUser extends Model implements IModel
