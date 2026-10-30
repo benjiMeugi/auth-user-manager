@@ -129,7 +129,9 @@ trait ApiResponse
         Log::error("Api Custom respondError: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
         Log::error("Stack trace: " . $e);
 
-        return $this->response(false, $code, $e->getMessage(), $errors);
+        $errorMessage = config('app.debug') ? $e->getMessage() : 'Une erreur interne est survenue.';
+
+        return $this->response(false, $code, $errorMessage, $errors);
     }
 
     /**

@@ -16,28 +16,32 @@ use Illuminate\Support\Facades\Route;
  * préfixé par "can:" pour que Laravel sache qu'il s'agit d'une
  * vérification d'autorisation, pas un simple alias de middleware.
  */
-function resolveAbility(string $ability, string $action)
-{
-    return 'can:' . $ability . '-' . $action;
+if (!function_exists('resolveAbility')) {
+    function resolveAbility(string $ability, string $action)
+    {
+        return 'can:' . $ability . '-' . $action;
+    }
 }
 
 //  Helper pour enregistrer rapidement les 5 routes standard d'un CRUD API
-function registerApiCrud(string $prefix, string $controller)
-{
-    Route::prefix($prefix)->group(function () use ($controller, $prefix) {
-        // Nettoie le préfixe si besoin (ex: "permission_user" -> "permission-user")
-        // $abilityName = str_replace('_', '-', $prefix);
-        $abilityName = $prefix;
+if (!function_exists('registerApiCrud')) {
+    function registerApiCrud(string $prefix, string $controller)
+    {
+        Route::prefix($prefix)->group(function () use ($controller, $prefix) {
+            // Nettoie le préfixe si besoin (ex: "permission_user" -> "permission-user")
+            // $abilityName = str_replace('_', '-', $prefix);
+            $abilityName = $prefix;
 
-        Route::get('/', [$controller, 'index'])->middleware(resolveAbility($abilityName, 'list'));
-        Route::get('/{id}', [$controller, 'show'])->middleware(resolveAbility($abilityName, 'show'));
-        Route::post('/', [$controller, 'store'])->middleware(resolveAbility($abilityName, 'create'));
-        Route::put('/{id}', [$controller, 'update'])->middleware(resolveAbility($abilityName, 'update'));
-        Route::delete('/{id}', [$controller, 'delete'])->middleware(resolveAbility($abilityName, 'delete'));
-    });
+            Route::get('/', [$controller, 'index'])->middleware(resolveAbility($abilityName, 'list'));
+            Route::get('/{id}', [$controller, 'show'])->middleware(resolveAbility($abilityName, 'show'));
+            Route::post('/', [$controller, 'store'])->middleware(resolveAbility($abilityName, 'create'));
+            Route::put('/{id}', [$controller, 'update'])->middleware(resolveAbility($abilityName, 'update'));
+            Route::delete('/{id}', [$controller, 'delete'])->middleware(resolveAbility($abilityName, 'delete'));
+        });
+    }
 }
 
-Route::post('login', [AuthController::class, 'login'])->name('login');
+Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login')->name('login');
 
 Route::middleware(['auth:sanctum'])->group(function () {
 

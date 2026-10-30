@@ -104,6 +104,9 @@ class Repository implements IRepository
     {
         $query = is_string($request->input('query_')) ? json_decode($request->input('query_')) : $request->input('query_');
         $data = (new Parser())->parse_filters((array)$query, $this->model)->where($this->model->getKeyName(), $id)->first();
+        if ($data === null) {
+            return $this->respondNotFound($id);
+        }
         return $this->respondOk(is_null($resource) ? $data : $resource::call($data, $request->all()));
     }
 

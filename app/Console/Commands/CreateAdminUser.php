@@ -39,7 +39,7 @@ class CreateAdminUser extends Command
             ['email' => $email],
             [
                 'username' => $username,
-                'password' => Hash::make($password),
+                'password' => $password,
             ]
         );
 

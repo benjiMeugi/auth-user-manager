@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -73,7 +74,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
 
                 // 4. Ressource introuvable (404)
-                if ($e instanceof NotFoundHttpException) {
+                if ($e instanceof NotFoundHttpException || $e instanceof ModelNotFoundException) {
                     return response()->json([
                         'success' => false,
                         'code' => 404,
@@ -84,6 +85,34 @@ return Application::configure(basePath: dirname(__DIR__))
                             'response_data' => null,
                         ]
                     ], 404);
+                }
+
+                // 4bis. Méthode HTTP non autorisée (405)
+                if ($e instanceof MethodNotAllowedHttpException) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 405,
+                        'message' => 'Méthode HTTP non autorisée pour cette route.',
+                        'body' => [
+                            'error_message' => $e->getMessage(),
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 405);
+                }
+
+                // 5. Trop de tentatives / Rate Limiting (429)
+                if ($e instanceof TooManyRequestsHttpException) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 429,
+                        'message' => 'Trop de tentatives. Veuillez réessayer plus tard.',
+                        'body' => [
+                            'error_message' => $e->getMessage(),
+                            'errors' => null,
+                            'response_data' => null,
+                        ]
+                    ], 429);
                 }
 
                 // 5. Erreur interne du serveur (500) par défaut pour les autres exceptions
