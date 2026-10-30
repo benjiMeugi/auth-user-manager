@@ -16,6 +16,7 @@ class Permission extends Model implements IModel
      */
     protected $fillable = [
         'label',
+        'description',
         'display_label',
     ];
 
@@ -24,7 +25,7 @@ class Permission extends Model implements IModel
      *
      * @var array
      */
-    public $relation_methods = ['users', 'roles'];
+    public $relation_methods = ['users', 'roles', 'apps'];
 
     public function getMigrateKey()
     {
@@ -34,25 +35,30 @@ class Permission extends Model implements IModel
     public function rules()
     {
         return [
-            'label' => 'required'
+            'label' => ['required', 'unique:' . $this->getTable()]
         ];
     }
 
     public function update_rules()
     {
         return [
-            'label' => 'sometimes',
+            'label' => ['sometimes', IModel::IGNORE_RULE],
             "id" => "required|exists:".$this->getTable().",$this->primaryKey"
         ];
     }
 
     public function roles()
     {
-        return $this->hasMany(Role::class, 'role_id');
+        return $this->belongsToMany(Role::class, 'permission_roles', 'permission_id', 'role_id');
     }
 
     public function users()
     {
-        return $this->hasMany(User::class, 'user_id');
+        return $this->belongsToMany(User::class, 'permission_users', 'permission_id', 'user_id');
+    }
+
+    public function apps()
+    {
+        return $this->belongsToMany(App::class, 'permission_apps', 'permission_id', 'app_id');
     }
 }

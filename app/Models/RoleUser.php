@@ -4,6 +4,7 @@ namespace App\Models;
 use App\Models\User;
 use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rule;
 
 class RoleUser extends Model implements IModel
 {
@@ -32,8 +33,13 @@ class RoleUser extends Model implements IModel
     public function rules()
     {
         return [
-            'role_id' => 'required|exists:roles,id',
-            'user_id' => 'required|exists:users,id',
+            'role_id' => 'bail|required|exists:roles,id',
+            'user_id' => [
+                'bail',
+                'required',
+                'exists:users,id',
+                Rule::unique($this->getTable(), 'user_id')->where('role_id', request('role_id')),
+            ],
         ];
     }
 

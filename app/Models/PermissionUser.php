@@ -3,6 +3,7 @@ namespace App\Models;
 
 use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rule;
 
 class PermissionUser extends Model implements IModel
 {
@@ -32,8 +33,13 @@ class PermissionUser extends Model implements IModel
     public function rules()
     {
         return [
-            'permission_id' => 'required|exists:permissions,id',
-            'user_id' => 'required|exists:users,id',
+            'permission_id' => 'bail|required|exists:permissions,id',
+            'user_id' => [
+                'bail',
+                'required',
+                'exists:users,id',
+                Rule::unique($this->getTable(), 'user_id')->where('permission_id', request('permission_id')),
+            ],
         ];
     }
 

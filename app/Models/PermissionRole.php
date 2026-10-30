@@ -1,10 +1,9 @@
 <?php
 namespace App\Models;
 
-use App\Rules\Uniques;
 use BenjiMeugi\Contracts\IModel;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PermissionRole extends Model implements IModel
 {
@@ -34,7 +33,12 @@ class PermissionRole extends Model implements IModel
         return [
             'permission_id' => 'bail|required|exists:permissions,id',
             // 'role_id' => ['bail','required', 'exists:roles,id', new Uniques($this->getTable(), ['role_id', 'permission_id'], $this->request)],
-            'role_id' => 'bail|required|exists:roles,id|unique:role_id,'.$this->request,
+            'role_id' => [
+                'bail',
+                'required',
+                'exists:roles,id',
+                Rule::unique($this->getTable(), 'role_id')->where('permission_id', request('permission_id')),
+            ],
         ];
     }
 

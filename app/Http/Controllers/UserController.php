@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Repository\Repository;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Resources\UserResource;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;

@@ -22,9 +22,8 @@ class User extends Authenticatable implements IModel
         'username',
         'email',
         'password',
-        'firstname',
-        'lastname',
-        'address_id',
+        'first_name',
+        'last_name',
     ];
 
     /**
@@ -44,6 +43,7 @@ class User extends Authenticatable implements IModel
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
     public $relation_methods = ['permissions', 'roles', 'permission_users', 'apps'];
@@ -94,6 +94,35 @@ class User extends Authenticatable implements IModel
     }
 
     /**
+     * Retourne la liste dédupliquée des labels de permissions (directes + via rôles).
+     *
+     * @return array<int, string>
+     */
+    public function getAllPermissions(): array
+    {
+        $this->loadMissing('permissions', 'roles.permissions');
+
+        $directPermissions = $this->permissions->pluck('label');
+        $rolePermissions = $this->roles->flatMap(function ($role) {
+            return $role->permissions->pluck('label');
+        });
+
+        return $directPermissions->merge($rolePermissions)->unique()->values()->toArray();
+    }
+
+    /**
+     * Retourne la liste dédupliquée des labels de rôles de l'utilisateur.
+     *
+     * @return array<int, string>
+     */
+    public function getRoleLabels(): array
+    {
+        $this->loadMissing('roles');
+
+        return $this->roles->pluck('label')->unique()->values()->toArray();
+    }
+
+    /**
      * check if current user has a specific permission
      * 
      * @param string $permission
@@ -101,7 +130,7 @@ class User extends Authenticatable implements IModel
      */
     public function hasPermission($permission)
     {
-        return $this->permissions()->where('label', $permission)->first() !== null;
+        return in_array($permission, $this->getAllPermissions(), true);
     }
 
 }

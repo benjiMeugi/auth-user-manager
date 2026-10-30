@@ -33,26 +33,26 @@ class Role extends Model implements IModel
     public function rules()
     {
         return [
-            'label' => 'required',
+            'label' => ['required', 'unique:' . $this->getTable()],
         ];
     }
 
     public function update_rules()
     {
         return [
-            'label' => 'sometimes',
+            'label' => ['sometimes', IModel::IGNORE_RULE],
             "id" => "required|exists:".$this->getTable().",$this->primaryKey"
         ];
     }
     
     public function users()
     {
-        return $this->belongsToMany(User::class, 'role_users', 'user_id');
+        return $this->belongsToMany(User::class, 'role_users', 'role_id', 'user_id');
     }
 
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class,'permission_roles', 'role_id');
+        return $this->belongsToMany(Permission::class, 'permission_roles', 'role_id', 'permission_id');
     }
 
     public function permission_roles()
