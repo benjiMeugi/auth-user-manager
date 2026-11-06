@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Contracts\IModel;
+use BenjiMeugi\Contracts\IModel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -22,9 +22,8 @@ class User extends Authenticatable implements IModel
         'username',
         'email',
         'password',
-        'firstname',
-        'lastname',
-        'address_id',
+        'first_name',
+        'last_name',
     ];
 
     /**
@@ -44,9 +43,10 @@ class User extends Authenticatable implements IModel
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
-    public $relation_methods = ['permissions', 'roles', 'permission_users'];
+    public $relation_methods = ['permissions', 'roles', 'permission_users', 'apps'];
 
     public function getMigrateKey()
     {
@@ -75,16 +75,51 @@ class User extends Authenticatable implements IModel
     // relations
     public function roles()
     {
-        return $this->belongsToMany(Role::class, 'role_users', 'role_id');
+        return $this->belongsToMany(Role::class, 'role_users', 'user_id', 'role_id');
     }
 
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'permission_users', 'user_id');
+        return $this->belongsToMany(Permission::class, 'permission_users', 'user_id', 'permission_id');
     }
+    
     public function permission_users()
     {
         return $this->hasMany(PermissionUser::class, 'user_id');
+    }
+
+    public function apps()
+    {
+        return $this->belongsToMany(App::class, 'app_users', 'user_id', 'app_id');
+    }
+
+    /**
+     * Retourne la liste dédupliquée des labels de permissions (directes + via rôles).
+     *
+     * @return array<int, string>
+     */
+    public function getAllPermissions(): array
+    {
+        $this->loadMissing('permissions', 'roles.permissions');
+
+        $directPermissions = $this->permissions->pluck('label');
+        $rolePermissions = $this->roles->flatMap(function ($role) {
+            return $role->permissions->pluck('label');
+        });
+
+        return $directPermissions->merge($rolePermissions)->unique()->values()->toArray();
+    }
+
+    /**
+     * Retourne la liste dédupliquée des labels de rôles de l'utilisateur.
+     *
+     * @return array<int, string>
+     */
+    public function getRoleLabels(): array
+    {
+        $this->loadMissing('roles');
+
+        return $this->roles->pluck('label')->unique()->values()->toArray();
     }
 
     /**
@@ -95,7 +130,7 @@ class User extends Authenticatable implements IModel
      */
     public function hasPermission($permission)
     {
-        return $this->permissions()->where('label', $permission)->first() !== null;
+        return in_array($permission, $this->getAllPermissions(), true);
     }
 
 }

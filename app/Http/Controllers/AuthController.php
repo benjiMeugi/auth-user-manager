@@ -8,6 +8,7 @@ use App\Http\Controllers\Traits\ApiResponse;
 use App\Models\User;
 use DateTime;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
@@ -32,111 +33,83 @@ class AuthController extends Controller
         $this->repository = new Repository($this->model);
     }
 
-
-    public function register(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-        ]);
-        if ($validator->fails()) {
-            return response(['errors' => $validator->errors()->all()], 422);
-        }
-        $request['password'] = Hash::make($request['password']);
-        $request['remember_token'] = Str::random(10);
-        $user = User::create($request->toArray());
-        $token = $user->createToken('Laravel Password Grant Client')->accessToken;
-        $response = ['token' => $token];
-        return response($response, 200);
-    }
-
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required',
+            'username' => 'required_without:email',
+            'email' => 'required_without:username',
             'password' => 'required',
         ]);
         if ($validator->fails()) {
             return $this->respondBadRequest(['errors' => $validator->errors()->all()]);
         }
 
-        $user = User::where('username', $request->username)
-            ->with('permissions', 'roles.permissions')
+        $identifier = $request->input('username') ?? $request->input('email');
+
+        $user = User::where('username', $identifier)
+            ->orWhere('email', $identifier)
+            ->with('permissions', 'roles.permissions', 'apps')
             ->first();
-        
-        if ($user) {
-            if (Hash::check($request->password, $user->password)) {
-                $expiration = config('sanctum.expiration');
-                $expireAt = $expiration ? (new DateTime())->modify("+{$expiration} minutes") : null;
 
-                $token = $user->createToken($user->username, ['*'], $expireAt);
-                
-                return $this->respondLogin($this->getUser($user), true, $token->plainTextToken, 200, "", $expireAt->format("Y-m-d H:i:s"));
-            } else {
-                // $response = ["Password mismatch"];
-                return $this->respondLogin(null, false, null, 402);
-            }
-        } else {
-            // $response = ['User does not exist'];
-            return $this->respondLogin(null, false, null, 402);
-        }
-    }
-
-    private function getUser(User $user)
-    {
-        $permissions = $user->permissions->map(function ($item) {
-            return $item->label;
-        });
-        
-        $permissionRoles = collect();
-        if ($user->roles->isNotEmpty()) {
-            $permissionRoles = $user->roles->permissions->map(function ($item) {
-                return $item->label;
-            });
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            // Utilisation d'un code 401 Unauthorized (standard) au lieu de 402 Payment Required
+            return $this->respondUnauthorized('Identifiants incorrects.');
         }
 
-        $finalPermissions = $permissionRoles->concat($permissions)->unique()->values()->all();
+        //Récupération et fusion de toutes les permissions de l'user ---        
+        $allAbilities = $user->getAllPermissions();
 
-        return [
-            'id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'permissions' => $finalPermissions,
-            'roles' => $user->roles->all()
-        ];
+        $expiration = config('sanctum.expiration');
+        $expireAt = $expiration ? (new DateTime())->modify("+{$expiration} minutes") : null;
+
+        $token = $user->createToken($user->username, $allAbilities, $expireAt);
+
+        return $this->respondLogin(
+            userData: [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'roles' => $user->getRoleLabels(),
+                'permissions' => $allAbilities,
+            ],
+            token: $token->plainTextToken,
+            expiresAt: $expireAt?->format("Y-m-d H:i:s")
+        );
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
         $response = ['You have been successfully logged out!'];
-        return $this->respondLogin($response, false, null, 200);
+        return $this->respondOk($response, 'Déconnexion réussie.');
     }
 
     public function validate_token(Request $request)
     {
-        $user = $request->user(); // Sanctum automatically resolves user
+        // Récupère l'utilisateur authentifié via Sanctum
+        $user = $request->user();
 
         if (!$user) {
-            return $this->respondLogin(null, false, null, 401); 
+            return $this->respondUnauthorized('Non authentifié. Veuillez fournir un token valide.');
         }
-    
-        return $this->respondLogin($user, true, "", 200);
-    }
 
+        // Charge les relations nécessaires pour calculer les rôles et habilités
+        $user->loadMissing('permissions', 'roles.permissions');
 
+        // Fusionne et déduplique toutes les habilités
+        $allAbilities = $user->getAllPermissions();
 
-    public function token(Request $request)
-    {
-        $request->request->add([
-            'grant_type' => 'password',
-            'client_id' => config('auth.passport.client_id'),
-            'client_secret' => config('auth.passport.client_secret'),
+        // Récupère les rôles de l'utilisateur
+        $roles = $user->getRoleLabels();
+
+        // Renvoie un format unifié pour tous les micro-services
+        return $this->respondOk([
+            'id' => $user->id,
+            'username' => $user->username,
+            'email' => $user->email,
+            'roles' => $roles,
+            'permissions' => $allAbilities,
         ]);
-
-        $proxy = Request::create('oauth/token', 'post');
-
-        return Route::dispatch($proxy);
     }
+
 }
