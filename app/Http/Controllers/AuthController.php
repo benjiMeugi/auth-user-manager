@@ -36,14 +36,18 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required',
+            'username' => 'required_without:email',
+            'email' => 'required_without:username',
             'password' => 'required',
         ]);
         if ($validator->fails()) {
             return $this->respondBadRequest(['errors' => $validator->errors()->all()]);
         }
 
-        $user = User::where('username', $request->username)
+        $identifier = $request->input('username') ?? $request->input('email');
+
+        $user = User::where('username', $identifier)
+            ->orWhere('email', $identifier)
             ->with('permissions', 'roles.permissions', 'apps')
             ->first();
 

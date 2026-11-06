@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class AppSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     /**
-     * Run the database seeds.
+     * Enregistre les applications clientes gérées par le service d'authentification central.
      */
     public function run(): void
     {
@@ -25,6 +27,10 @@ class AppSeeder extends Seeder
             [
                 'name' => 'Webmail Management',
                 'description' => 'Gestion des boîtes mail et de la messagerie interne.',
+            ],
+            [
+                'name' => 'Crèche Management',
+                'description' => 'Gestion des inscriptions, de la scolarité et du séjour quotidien des enfants à la crèche.',
             ],
         ];
 
